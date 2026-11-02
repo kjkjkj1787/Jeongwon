@@ -74,3 +74,80 @@ export const EVENT_TYPES = [
   "코딩/실기 테스트",
   "신체검사",
 ] as const;
+
+// --- New Resume & Competitive Analysis Types ---
+
+export type ResumeProject = {
+  title: string;
+  period?: string;
+  role?: string;
+  techStack?: string[];
+  description: string;
+  outcome?: string;
+};
+
+export type WorkExperience = {
+  company: string;
+  role: string;
+  period?: string;
+  responsibilities: string;
+};
+
+export type StructuredResume = {
+  major: string;
+  education: string;
+  certifications: string[];
+  skills: string[];
+  projects: ResumeProject[];
+  workExperience: WorkExperience[];
+  awards: string[];
+  rawText?: string;
+};
+
+export type ResumeRecord = {
+  id: string;
+  userId: string;
+  title: string;
+  version: string;
+  fileName?: string;
+  structuredData: StructuredResume;
+  consentGiven: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AcceptedProfile = {
+  id: string;
+  companyName: string;
+  jobCategory: string;
+  hiringYear: string;
+  qualifications: string[];
+  skills: string[];
+  projects: string[];
+  source: string;
+  permissionStatus: "verified_consent" | "official_disclosure";
+};
+
+export type ResumeAnalysisRecord = {
+  id: string;
+  userId: string;
+  resumeId: string;
+  resumeTitle?: string;
+  resumeVersion?: string;
+  jobId: number;
+  companyName: string;
+  jobTitle: string;
+  requirementMatchScore: number; // 0-100
+  acceptedProfileSimilarity: number | null; // null if no accepted cases exist
+  sampleCount: number;
+  acceptedProfileSources?: string[];
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+  projectCompetitiveness: string;
+  skillsCompetitiveness: string;
+  missingRequirements: string[];
+  rationale: string;
+  analysisVersion: string;
+  createdAt: string;
+};

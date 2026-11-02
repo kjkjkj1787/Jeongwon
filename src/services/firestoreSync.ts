@@ -7,7 +7,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../firebase";
-import { EventItem, Profile } from "../types";
+import { EventItem, Profile, ResumeRecord, ResumeAnalysisRecord } from "../types";
 
 export interface StoredJobData {
   status: string;
@@ -169,5 +169,102 @@ export async function loadUserEventsFromFirestore(
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
     return [];
+  }
+}
+
+// 4. Resumes Sync (User personal versions)
+export async function saveResumeToFirestore(
+  userId: string,
+  resume: ResumeRecord
+): Promise<void> {
+  const path = `users/${userId}/resumes/${resume.id}`;
+  try {
+    const resRef = doc(db, "users", userId, "resumes", resume.id);
+    await setDoc(resRef, {
+      ...resume,
+      userId,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function loadResumesFromFirestore(
+  userId: string
+): Promise<ResumeRecord[]> {
+  const path = `users/${userId}/resumes`;
+  try {
+    const colRef = collection(db, "users", userId, "resumes");
+    const snapshot = await getDocs(colRef);
+    const list: ResumeRecord[] = [];
+    snapshot.forEach(docSnap => {
+      list.push(docSnap.data() as ResumeRecord);
+    });
+    return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}
+
+export async function deleteResumeFromFirestore(
+  userId: string,
+  resumeId: string
+): Promise<void> {
+  const path = `users/${userId}/resumes/${resumeId}`;
+  try {
+    const resRef = doc(db, "users", userId, "resumes", resumeId);
+    await deleteDoc(resRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+// 5. Resume Analysis History Sync
+export async function saveAnalysisToFirestore(
+  userId: string,
+  analysis: ResumeAnalysisRecord
+): Promise<void> {
+  const path = `users/${userId}/analyses/${analysis.id}`;
+  try {
+    const aRef = doc(db, "users", userId, "analyses", analysis.id);
+    await setDoc(aRef, {
+      ...analysis,
+      userId,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function loadAnalysesFromFirestore(
+  userId: string
+): Promise<ResumeAnalysisRecord[]> {
+  const path = `users/${userId}/analyses`;
+  try {
+    const colRef = collection(db, "users", userId, "analyses");
+    const snapshot = await getDocs(colRef);
+    const list: ResumeAnalysisRecord[] = [];
+    snapshot.forEach(docSnap => {
+      list.push(docSnap.data() as ResumeAnalysisRecord);
+    });
+    return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}
+
+export async function deleteAnalysisFromFirestore(
+  userId: string,
+  analysisId: string
+): Promise<void> {
+  const path = `users/${userId}/analyses/${analysisId}`;
+  try {
+    const aRef = doc(db, "users", userId, "analyses", analysisId);
+    await deleteDoc(aRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }

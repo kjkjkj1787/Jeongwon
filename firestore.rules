@@ -35,6 +35,22 @@ service cloud.firestore {
       match /events/{eventId} {
         allow read, write: if isOwner(userId);
       }
+
+      // Subcollection: Resumes (User personal versions)
+      match /resumes/{resumeId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Subcollection: Resume Analyses history
+      match /analyses/{analysisId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Public Verified Accepted Profiles (Read-only for signed-in users)
+    match /accepted_profiles/{profileId} {
+      allow read: if isSignedIn();
+      allow write: if false;
     }
 
     // Public & Aggregated Jobs cache

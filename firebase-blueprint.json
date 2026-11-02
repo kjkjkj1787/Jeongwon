@@ -65,6 +65,63 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "company", "title", "region", "deadline"]
+    },
+    "Resume": {
+      "title": "Resume",
+      "description": "Structured candidate resume with versioning and consent",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "version": { "type": "string", "maxLength": 50 },
+        "filePath": { "type": "string", "maxLength": 500 },
+        "structuredData": { "type": "object" },
+        "consentGiven": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "version", "consentGiven", "createdAt"]
+    },
+    "AcceptedProfile": {
+      "title": "AcceptedProfile",
+      "description": "Verified successful applicant profile with consent status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "companyName": { "type": "string", "maxLength": 200 },
+        "jobCategory": { "type": "string", "maxLength": 100 },
+        "hiringYear": { "type": "string", "maxLength": 50 },
+        "qualifications": { "type": "array" },
+        "skills": { "type": "array" },
+        "projects": { "type": "array" },
+        "source": { "type": "string", "maxLength": 200 },
+        "permissionStatus": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "companyName", "jobCategory", "permissionStatus", "source"]
+    },
+    "ResumeAnalysis": {
+      "title": "ResumeAnalysis",
+      "description": "AI analysis result comparing resume against job requirements and accepted profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "resumeId": { "type": "string", "maxLength": 128 },
+        "jobId": { "type": "integer" },
+        "companyName": { "type": "string", "maxLength": 200 },
+        "jobTitle": { "type": "string", "maxLength": 200 },
+        "requirementMatchScore": { "type": "integer" },
+        "acceptedProfileSimilarity": { "type": "integer" },
+        "sampleCount": { "type": "integer" },
+        "strengths": { "type": "array" },
+        "weaknesses": { "type": "array" },
+        "recommendations": { "type": "array" },
+        "rationale": { "type": "string", "maxLength": 3000 },
+        "analysisVersion": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "resumeId", "jobId", "requirementMatchScore", "createdAt"]
     }
   },
   "firestore": {
@@ -79,6 +136,18 @@
     "/users/{userId}/events/{eventId}": {
       "schema": { "$ref": "entities.UserEvent" },
       "description": "User recruitment timeline milestones"
+    },
+    "/users/{userId}/resumes/{resumeId}": {
+      "schema": { "$ref": "entities.Resume" },
+      "description": "User stored resume versions and structured data"
+    },
+    "/users/{userId}/analyses/{analysisId}": {
+      "schema": { "$ref": "entities.ResumeAnalysis" },
+      "description": "User resume competitiveness analysis history"
+    },
+    "/accepted_profiles/{profileId}": {
+      "schema": { "$ref": "entities.AcceptedProfile" },
+      "description": "Verified successful applicant profiles repository"
     },
     "/jobs/{jobId}": {
       "schema": { "$ref": "entities.PublicJob" },

@@ -14,10 +14,17 @@ import {
   Bell,
   CheckCircle2,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 import { User } from "firebase/auth";
 
-type ViewMode = "calendar" | "list" | "kanban" | "diagnostics";
+export type ViewMode =
+  | "calendar"
+  | "list"
+  | "kanban"
+  | "diagnostics"
+  | "resume"
+  | "resume-analysis";
 
 interface HeaderProps {
   currentView: ViewMode;
@@ -210,7 +217,31 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Sparkles className="w-4 h-4 text-amber-400" />
-            <span>직무 적합도 진단실</span>
+            <span>스펙 매칭 진단</span>
+          </button>
+
+          <button
+            onClick={() => onViewChange("resume")}
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition ${
+              currentView === "resume"
+                ? "bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+            }`}
+          >
+            <FileText className="w-4 h-4 text-cyan-400" />
+            <span>이력서 관리</span>
+          </button>
+
+          <button
+            onClick={() => onViewChange("resume-analysis")}
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition ${
+              currentView === "resume-analysis"
+                ? "bg-gradient-to-r from-blue-600/30 to-indigo-600/30 text-indigo-300 border border-indigo-500/40 font-bold"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-amber-300" />
+            <span>AI 합격자 비교 분석</span>
           </button>
         </div>
       </div>

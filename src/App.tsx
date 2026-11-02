@@ -1,14 +1,23 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Job, EventItem, Profile, RankedJob } from "./types";
+import {
+  Job,
+  EventItem,
+  Profile,
+  RankedJob,
+  ResumeRecord,
+  ResumeAnalysisRecord,
+} from "./types";
 import { demoJobs, initialProfile, dateAfter } from "./data/initialData";
 import { calculateFit } from "./utils/fitCalculator";
 import { exportToICS } from "./utils/calendarExport";
 
-import { Header } from "./components/Header";
+import { Header, ViewMode } from "./components/Header";
 import { CalendarView } from "./components/CalendarView";
 import { JobListView } from "./components/JobListView";
 import { KanbanView } from "./components/KanbanView";
 import { DiagnosticsView } from "./components/DiagnosticsView";
+import { ResumeManageView } from "./components/ResumeManageView";
+import { ResumeAnalysisView } from "./components/ResumeAnalysisView";
 import { JobDetailDrawer } from "./components/JobDetailDrawer";
 import { ProfileModal } from "./components/ProfileModal";
 import { AddJobModal } from "./components/AddJobModal";
@@ -29,6 +38,12 @@ import {
   saveUserEventToFirestore,
   deleteUserEventFromFirestore,
   loadUserEventsFromFirestore,
+  saveResumeToFirestore,
+  loadResumesFromFirestore,
+  deleteResumeFromFirestore,
+  saveAnalysisToFirestore,
+  loadAnalysesFromFirestore,
+  deleteAnalysisFromFirestore,
 } from "./services/firestoreSync";
 
 import {
@@ -43,6 +58,8 @@ import {
   RefreshCw,
   Bell,
   ShieldCheck,
+  FileText,
+  Award,
 } from "lucide-react";
 
 function readSaved<T>(key: string, fallback: T): T {
@@ -53,6 +70,51 @@ function readSaved<T>(key: string, fallback: T): T {
     return fallback;
   }
 }
+
+// Default initial seed resume so user can run analysis immediately
+const defaultSeedResume: ResumeRecord = {
+  id: "res-seed-1",
+  userId: "guest-user",
+  title: "기계자동차공학 표준 이력서",
+  version: "v1.0",
+  fileName: "기계자동차_취업이력서_홍길동.pdf",
+  consentGiven: true,
+  structuredData: {
+    major: "기계자동차공학과",
+    education: "대학교(4년제) 졸업예정 (학점 3.85 / 4.5)",
+    certifications: ["일반기계기사", "AutoCAD 1급"],
+    skills: ["CATIA", "CAD", "MATLAB", "SimSolid", "생산자동화"],
+    projects: [
+      {
+        title: "전기차 감속기 3D 모델링 및 치형 접촉 유한요소 해석",
+        period: "2024.03 - 2024.06",
+        role: "기구설계 및 CAE 해석 담당",
+        techStack: ["CATIA", "SimSolid"],
+        description: "전기차 구동모듈 감속기 하우징 3D 모델링 및 치면 접촉 해석을 통한 경량화 설계 달성",
+        outcome: "캡스톤디자인 모빌리티 부문 우수상",
+      },
+      {
+        title: "스마트 공정 시뮬레이션 및 로봇 티칭 프로젝트",
+        period: "2023.09 - 2023.12",
+        role: "공정 최적화 조장",
+        techStack: ["CAD", "Inventor"],
+        description: "생산라인 부품 조립 사이클타임 분석 및 병목 공정 해소를 위한 자동화 지그 개선",
+        outcome: "사이클타임 12% 단축",
+      },
+    ],
+    workExperience: [
+      {
+        company: "자동차 1차 부품 협력사 하계 인턴십",
+        role: "품질보증팀 인턴",
+        period: "2024.07 - 2024.08",
+        responsibilities: "샤시 부품 3차원 측정 검사 보조 및 수입검사 성적서 전산화 지원",
+      },
+    ],
+    awards: ["교내 모빌리티 캡스톤디자인 경진대회 우수상"],
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
 
 export default function App() {
   // 1. Firebase Auth User State
@@ -79,10 +141,19 @@ export default function App() {
     readSaved("aca_notes", {})
   );
 
+  // Resumes and Analysis State
+  const [resumes, setResumes] = useState<ResumeRecord[]>(() =>
+    readSaved("aca_resumes", [defaultSeedResume])
+  );
+  const [activeResumeId, setActiveResumeId] = useState<string | null>(() =>
+    readSaved("aca_active_resume_id", "res-seed-1")
+  );
+  const [analyses, setAnalyses] = useState<ResumeAnalysisRecord[]>(() =>
+    readSaved("aca_analyses", [])
+  );
+
   // 3. Navigation & UI State
-  const [currentView, setCurrentView] = useState<
-    "calendar" | "list" | "kanban" | "diagnostics"
-  >("calendar");
+  const [currentView, setCurrentView] = useState<ViewMode>("calendar");
   const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [minScore, setMinScore] = useState<number>(0);
   const [regionFilter, setRegionFilter] = useState<string>("전체");
@@ -132,7 +203,6 @@ export default function App() {
           if (remoteProfile) {
             setProfile(remoteProfile);
           } else {
-            // First time login: seed current profile into Firestore
             await saveUserProfileToFirestore(currentUser.uid, profile, currentUser.email || "");
           }
 
@@ -148,6 +218,21 @@ export default function App() {
           const remoteEvents = await loadUserEventsFromFirestore(currentUser.uid);
           if (remoteEvents && remoteEvents.length > 0) {
             setEvents(remoteEvents);
+          }
+
+          // Load User Resumes from Firestore
+          const remoteResumes = await loadResumesFromFirestore(currentUser.uid);
+          if (remoteResumes && remoteResumes.length > 0) {
+            setResumes(remoteResumes);
+            if (!activeResumeId && remoteResumes.length > 0) {
+              setActiveResumeId(remoteResumes[0].id);
+            }
+          }
+
+          // Load User Analyses from Firestore
+          const remoteAnalyses = await loadAnalysesFromFirestore(currentUser.uid);
+          if (remoteAnalyses && remoteAnalyses.length > 0) {
+            setAnalyses(remoteAnalyses);
           }
         } catch (err: any) {
           console.error("Firestore user sync error:", err);
@@ -185,6 +270,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("aca_notes", JSON.stringify(notes));
   }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem("aca_resumes", JSON.stringify(resumes));
+  }, [resumes]);
+
+  useEffect(() => {
+    localStorage.setItem("aca_active_resume_id", JSON.stringify(activeResumeId));
+  }, [activeResumeId]);
+
+  useEffect(() => {
+    localStorage.setItem("aca_analyses", JSON.stringify(analyses));
+  }, [analyses]);
 
   // Load jobs from Backend API (Saramin Open API crawler + cache)
   const fetchBackendJobs = async () => {
@@ -356,6 +453,56 @@ export default function App() {
     }
   };
 
+  // Resume handlers
+  const handleSaveResume = async (resume: ResumeRecord) => {
+    setResumes(prev => {
+      const idx = prev.findIndex(r => r.id === resume.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = resume;
+        return next;
+      }
+      return [resume, ...prev];
+    });
+    setActiveResumeId(resume.id);
+    showToast(`'${resume.title} (${resume.version})' 이력서가 저장되었습니다.`);
+
+    if (user) {
+      await saveResumeToFirestore(user.uid, resume);
+    }
+  };
+
+  const handleDeleteResume = async (resumeId: string) => {
+    setResumes(prev => prev.filter(r => r.id !== resumeId));
+    if (activeResumeId === resumeId) {
+      setActiveResumeId(resumes.find(r => r.id !== resumeId)?.id || null);
+    }
+    showToast("이력서가 삭제되었습니다.");
+
+    if (user) {
+      await deleteResumeFromFirestore(user.uid, resumeId);
+    }
+  };
+
+  // Analysis handlers
+  const handleSaveAnalysis = async (analysis: ResumeAnalysisRecord) => {
+    setAnalyses(prev => [analysis, ...prev]);
+    showToast("AI 이력서 경쟁력 분석 결과가 저장되었습니다.");
+
+    if (user) {
+      await saveAnalysisToFirestore(user.uid, analysis);
+    }
+  };
+
+  const handleDeleteAnalysis = async (analysisId: string) => {
+    setAnalyses(prev => prev.filter(a => a.id !== analysisId));
+    showToast("분석 기록이 삭제되었습니다.");
+
+    if (user) {
+      await deleteAnalysisFromFirestore(user.uid, analysisId);
+    }
+  };
+
   const handleAddCustomJob = (newJobData: Omit<Job, "id">) => {
     const newId = Math.max(0, ...jobs.map(j => j.id)) + 1;
     const createdJob: Job = {
@@ -385,6 +532,9 @@ export default function App() {
       setFavorites([]);
       setEvents([]);
       setNotes({});
+      setResumes([defaultSeedResume]);
+      setActiveResumeId(defaultSeedResume.id);
+      setAnalyses([]);
       setSelectedJobId(null);
       showToast("데이터가 초기 상태로 재설정되었습니다.");
     }
@@ -393,6 +543,13 @@ export default function App() {
   const handleExportICS = () => {
     exportToICS(jobs, events);
     showToast("캘린더 파일(.ics)이 다운로드되었습니다. 캘린더 앱에 추가하세요.");
+  };
+
+  // Dedicated handler when user clicks [AI 이력서 경쟁력 분석] from JobDetailDrawer
+  const handleLaunchResumeAnalysisForJob = (jobId: number) => {
+    setSelectedJobId(jobId);
+    setCurrentView("resume-analysis");
+    showToast("해당 기업의 AI 이력서 경쟁력 분석 화면으로 이동했습니다.");
   };
 
   return (
@@ -437,6 +594,11 @@ export default function App() {
                 데모 공고 모드 (실제 공고와 구분 표기됨)
               </span>
             )}
+
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              AI 합격자 이력서 분석 엔진 (Gemini)
+            </span>
 
             {user ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
@@ -491,236 +653,268 @@ export default function App() {
 
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
             <div className="text-xs font-semibold text-slate-500 flex items-center justify-between">
-              <span>관심 저장 공고</span>
-              <Star className="w-4 h-4 text-amber-500" />
+              <span>등록된 이력서 버전</span>
+              <FileText className="w-4 h-4 text-indigo-500" />
             </div>
-            <div className="mt-2 text-2xl sm:text-3xl font-extrabold text-amber-600">
-              {favorites.length}
-              <span className="text-xs font-normal text-slate-400 ml-1">건</span>
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold text-indigo-600">
+              {resumes.length}
+              <span className="text-xs font-normal text-slate-400 ml-1">개</span>
             </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
             <div className="text-xs font-semibold text-slate-500 flex items-center justify-between">
-              <span>3일 내 마감 (D-3 이메일 대상)</span>
-              <Clock className="w-4 h-4 text-rose-500" />
+              <span>완료된 AI 분석 리포트</span>
+              <Award className="w-4 h-4 text-amber-500" />
             </div>
-            <div className="mt-2 text-2xl sm:text-3xl font-extrabold text-rose-600">
-              {upcomingDeadlinesCount}
+            <div className="mt-2 text-2xl sm:text-3xl font-extrabold text-amber-600">
+              {analyses.length}
               <span className="text-xs font-normal text-slate-400 ml-1">건</span>
             </div>
           </div>
         </div>
 
-        {/* Main Work Area: Left View Component + Right Detail Sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Main Selected View Container */}
-          <div className="lg:col-span-8 space-y-4">
-            {currentView === "calendar" && (
-              <CalendarView
-                jobs={rankedJobs}
-                events={events}
-                selectedJobId={selectedJobId}
-                onSelectJob={setSelectedJobId}
-                minScore={minScore}
-                setMinScore={setMinScore}
-                regionFilter={regionFilter}
-                setRegionFilter={setRegionFilter}
-                onlyFavorites={onlyFavorites}
-                setOnlyFavorites={setOnlyFavorites}
-                favorites={favorites}
-                regions={availableRegions}
-              />
-            )}
+        {/* View Switch: Full views for Resume and Resume-Analysis, or Grid view for Calendar/List/Kanban/Diagnostics */}
+        {currentView === "resume" && (
+          <ResumeManageView
+            resumes={resumes}
+            onSaveResume={handleSaveResume}
+            onDeleteResume={handleDeleteResume}
+            activeResumeId={activeResumeId}
+            onSelectActiveResume={setActiveResumeId}
+            onNavigateToAnalysis={() => setCurrentView("resume-analysis")}
+          />
+        )}
 
-            {currentView === "list" && (
-              <JobListView
-                jobs={rankedJobs}
-                selectedJobId={selectedJobId}
-                onSelectJob={setSelectedJobId}
-                statuses={statuses}
-                favorites={favorites}
-                onToggleFavorite={handleToggleFavorite}
-                regions={availableRegions}
-              />
-            )}
+        {currentView === "resume-analysis" && (
+          <ResumeAnalysisView
+            jobs={jobs}
+            resumes={resumes}
+            analyses={analyses}
+            selectedJobId={selectedJobId}
+            onSelectJobId={setSelectedJobId}
+            activeResumeId={activeResumeId}
+            onSelectActiveResumeId={setActiveResumeId}
+            onSaveAnalysis={handleSaveAnalysis}
+            onDeleteAnalysis={handleDeleteAnalysis}
+            onNavigateToResumes={() => setCurrentView("resume")}
+          />
+        )}
 
-            {currentView === "kanban" && (
-              <KanbanView
-                jobs={rankedJobs}
-                statuses={statuses}
-                onStatusChange={handleStatusChange}
-                onSelectJob={setSelectedJobId}
-                selectedJobId={selectedJobId}
-              />
-            )}
+        {(currentView === "calendar" ||
+          currentView === "list" ||
+          currentView === "kanban" ||
+          currentView === "diagnostics") && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* Main Selected View Container */}
+            <div className="lg:col-span-8 space-y-4">
+              {currentView === "calendar" && (
+                <CalendarView
+                  jobs={rankedJobs}
+                  events={events}
+                  selectedJobId={selectedJobId}
+                  onSelectJob={setSelectedJobId}
+                  minScore={minScore}
+                  setMinScore={setMinScore}
+                  regionFilter={regionFilter}
+                  setRegionFilter={setRegionFilter}
+                  onlyFavorites={onlyFavorites}
+                  setOnlyFavorites={setOnlyFavorites}
+                  favorites={favorites}
+                  regions={availableRegions}
+                />
+              )}
 
-            {currentView === "diagnostics" && (
-              <DiagnosticsView
-                profile={profile}
-                jobs={rankedJobs}
-                onOpenProfile={() => setIsProfileOpen(true)}
-              />
-            )}
+              {currentView === "list" && (
+                <JobListView
+                  jobs={rankedJobs}
+                  selectedJobId={selectedJobId}
+                  onSelectJob={setSelectedJobId}
+                  statuses={statuses}
+                  favorites={favorites}
+                  onToggleFavorite={handleToggleFavorite}
+                  regions={availableRegions}
+                />
+              )}
 
-            {/* Quick High-Fit Jobs horizontal strip when in Calendar view */}
-            {currentView === "calendar" && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-blue-600" />
-                    <span>내 프로필 기반 직무 적합도 높은 추천 공고</span>
-                  </h3>
-                  <button
-                    onClick={() => setCurrentView("list")}
-                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
-                  >
-                    전체 보기 &rarr;
-                  </button>
-                </div>
+              {currentView === "kanban" && (
+                <KanbanView
+                  jobs={rankedJobs}
+                  statuses={statuses}
+                  onStatusChange={handleStatusChange}
+                  onSelectJob={setSelectedJobId}
+                  selectedJobId={selectedJobId}
+                />
+              )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {rankedJobs.slice(0, 4).map(job => (
-                    <div
-                      key={job.id}
-                      onClick={() => setSelectedJobId(job.id)}
-                      className={`cursor-pointer p-3 rounded-xl border text-left flex items-center justify-between gap-3 transition ${
-                        selectedJobId === job.id
-                          ? "border-blue-600 bg-blue-50/20 ring-1 ring-blue-500"
-                          : "border-slate-200 hover:border-blue-300 bg-white"
-                      }`}
+              {currentView === "diagnostics" && (
+                <DiagnosticsView
+                  profile={profile}
+                  jobs={rankedJobs}
+                  onOpenProfile={() => setIsProfileOpen(true)}
+                />
+              )}
+
+              {/* Quick High-Fit Jobs horizontal strip when in Calendar view */}
+              {currentView === "calendar" && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-blue-600" />
+                      <span>내 프로필 기반 직무 적합도 높은 추천 공고</span>
+                    </h3>
+                    <button
+                      onClick={() => setCurrentView("list")}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
                     >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          {job.source === "saramin" ? (
-                            <span className="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded font-bold">
-                              사람인
-                            </span>
-                          ) : (
-                            <span className="text-[9px] bg-slate-400 text-white px-1.5 py-0.2 rounded font-bold">
-                              데모
-                            </span>
-                          )}
-                          <span className="font-bold text-xs text-slate-900">
-                            {job.company}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 truncate max-w-[200px] mt-0.5">
-                          {job.title} · {job.region}
-                        </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
-                          <span>서류 마감: {job.deadline}</span>
-                          {job.deadlineChanged && (
-                            <span className="text-[9px] bg-rose-100 text-rose-700 px-1 rounded font-bold">
-                              마감연장
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span
-                        className={`text-xs font-black px-2 py-1 rounded-lg shrink-0 ${
-                          job.fit.score >= 80
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-blue-100 text-blue-800"
+                      전체 보기 &rarr;
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {rankedJobs.slice(0, 4).map(job => (
+                      <div
+                        key={job.id}
+                        onClick={() => setSelectedJobId(job.id)}
+                        className={`cursor-pointer p-3 rounded-xl border text-left flex items-center justify-between gap-3 transition ${
+                          selectedJobId === job.id
+                            ? "border-blue-600 bg-blue-50/20 ring-1 ring-blue-500"
+                            : "border-slate-200 hover:border-blue-300 bg-white"
                         }`}
                       >
-                        {job.fit.score}점
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Sidebar: Job Detail / Criteria Explanation */}
-          <div className="lg:col-span-4 sticky top-24 space-y-4">
-            {activeJob ? (
-              <JobDetailDrawer
-                job={activeJob}
-                onClose={() => setSelectedJobId(null)}
-                status={statuses[activeJob.id] || "미지원"}
-                onStatusChange={s => handleStatusChange(activeJob.id, s)}
-                isFavorite={favorites.includes(activeJob.id)}
-                onToggleFavorite={() => handleToggleFavorite(activeJob.id)}
-                events={events}
-                onAddEvent={handleAddEvent}
-                onDeleteEvent={handleDeleteEvent}
-                notes={notes[activeJob.id] || ""}
-                onSaveNotes={content => handleSaveNotes(activeJob.id, content)}
-                onDeleteJob={handleDeleteJob}
-              />
-            ) : (
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4 text-xs">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    기업 상세정보 &amp; 전형 관리
-                  </h3>
-                  <p className="text-slate-500 mt-1">
-                    캘린더 날짜의 공고 또는 목록의 기업 카드를 클릭하여 전형 일정, 상태, 메모를 기록하세요.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                  <h4 className="font-bold text-slate-800 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                    <span>실시간 직무 적합도 점수 산출 배점</span>
-                  </h4>
-                  <div className="space-y-1.5 text-slate-600 text-[11px]">
-                    <div className="flex justify-between pb-1 border-b border-slate-200">
-                      <span>• 희망 직무 (공고 제목/설명 일치)</span>
-                      <strong className="text-slate-900">최대 40점</strong>
-                    </div>
-                    <div className="flex justify-between pb-1 border-b border-slate-200">
-                      <span>• 보유 기술 (요구 툴 일치율)</span>
-                      <strong className="text-slate-900">최대 30점</strong>
-                    </div>
-                    <div className="flex justify-between pb-1 border-b border-slate-200">
-                      <span>• 희망 지역 (울산/경남/부산/경기 등)</span>
-                      <strong className="text-slate-900">최대 20점</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>• 전공 연관성 (기계/자동차 등)</span>
-                      <strong className="text-slate-900">최대 10점</strong>
-                    </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            {job.source === "saramin" ? (
+                              <span className="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded font-bold">
+                                사람인
+                              </span>
+                            ) : (
+                              <span className="text-[9px] bg-slate-400 text-white px-1.5 py-0.2 rounded font-bold">
+                                데모
+                              </span>
+                            )}
+                            <span className="font-bold text-xs text-slate-900">
+                              {job.company}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate max-w-[200px] mt-0.5">
+                            {job.title} · {job.region}
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                            <span>서류 마감: {job.deadline}</span>
+                            {job.deadlineChanged && (
+                              <span className="text-[9px] bg-rose-100 text-rose-700 px-1 rounded font-bold">
+                                마감연장
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-xs font-black px-2 py-1 rounded-lg shrink-0 ${
+                            job.fit.score >= 80
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {job.fit.score}점
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
+              )}
+            </div>
 
-                <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/70 space-y-2">
-                  <span className="font-bold text-amber-900 flex items-center gap-1">
-                    <Bell className="w-3.5 h-3.5 text-amber-700" />
-                    <span>채용 마감 D-3 / D-1 자동 알림</span>
-                  </span>
-                  <p className="text-slate-600 leading-relaxed text-[11px]">
-                    매일 오전 08:30 KST 수집 시 마감 3일 전과 1일 전 공고를 감지하여 이메일 알림을 발송합니다.
-                  </p>
+            {/* Right Sidebar: Job Detail / Criteria Explanation */}
+            <div className="lg:col-span-4 sticky top-24 space-y-4">
+              {activeJob ? (
+                <JobDetailDrawer
+                  job={activeJob}
+                  onClose={() => setSelectedJobId(null)}
+                  status={statuses[activeJob.id] || "미지원"}
+                  onStatusChange={s => handleStatusChange(activeJob.id, s)}
+                  isFavorite={favorites.includes(activeJob.id)}
+                  onToggleFavorite={() => handleToggleFavorite(activeJob.id)}
+                  events={events}
+                  onAddEvent={handleAddEvent}
+                  onDeleteEvent={handleDeleteEvent}
+                  notes={notes[activeJob.id] || ""}
+                  onSaveNotes={content => handleSaveNotes(activeJob.id, content)}
+                  onDeleteJob={handleDeleteJob}
+                  onAnalyzeResume={handleLaunchResumeAnalysisForJob}
+                />
+              ) : (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4 text-xs">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      기업 상세정보 &amp; 전형 관리
+                    </h3>
+                    <p className="text-slate-500 mt-1">
+                      캘린더 날짜의 공고 또는 목록의 기업 카드를 클릭하면 상세정보와 함께 <strong>[AI 이력서 경쟁력 분석]</strong>을 바로 실행할 수 있습니다.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200/70 space-y-2">
+                    <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>AI 합격자 이력서 비교 분석</span>
+                    </span>
+                    <p className="text-slate-600 leading-relaxed text-[11px]">
+                      채용공고 요구역량과 실제 합격자 사례 데이터베이스를 Gemini AI로 비교 분석하여 합격 가능성을 높이는 구체적인 보완 가이드를 제공합니다.
+                    </p>
+                    <button
+                      onClick={() => setCurrentView("resume-analysis")}
+                      className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 underline"
+                    >
+                      AI 비교 분석실 바로가기 &rarr;
+                    </button>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      <span>실시간 직무 적합도 점수 산출 배점</span>
+                    </h4>
+                    <div className="space-y-1.5 text-slate-600 text-[11px]">
+                      <div className="flex justify-between pb-1 border-b border-slate-200">
+                        <span>• 희망 직무 (공고 제목/설명 일치)</span>
+                        <strong className="text-slate-900">최대 40점</strong>
+                      </div>
+                      <div className="flex justify-between pb-1 border-b border-slate-200">
+                        <span>• 보유 기술 (요구 툴 일치율)</span>
+                        <strong className="text-slate-900">최대 30점</strong>
+                      </div>
+                      <div className="flex justify-between pb-1 border-b border-slate-200">
+                        <span>• 희망 지역 (울산/경남/부산/경기 등)</span>
+                        <strong className="text-slate-900">최대 20점</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>• 전공 연관성 (기계/자동차 등)</span>
+                        <strong className="text-slate-900">최대 10점</strong>
+                      </div>
+                    </div>
+                  </div>
+
                   <button
-                    onClick={() => setIsNotificationModalOpen(true)}
-                    className="text-xs font-semibold text-amber-800 hover:text-amber-950 underline"
+                    onClick={() => setIsAddJobOpen(true)}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs text-xs"
                   >
-                    알림 설정 &amp; 테스트 발송 &rarr;
+                    <Plus className="w-4 h-4" />
+                    <span>새 채용공고 직접 추가하기</span>
                   </button>
                 </div>
-
-                <button
-                  onClick={() => setIsAddJobOpen(true)}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl flex items-center justify-center gap-1.5 transition shadow-xs text-xs"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>새 채용공고 직접 추가하기</span>
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Footer Notice */}
         <footer className="pt-6 pb-4 text-center text-xs text-slate-500 border-t border-slate-200/80 space-y-1">
           <p className="font-medium text-slate-600">
-            Auto Career AI · 자동차 취업 캘린더 &amp; 직무 적합도 기반 채용 관리 시스템
+            Auto Career AI · 자동차 취업 캘린더 &amp; AI 합격자 이력서 비교 경쟁력 분석 플랫폼
           </p>
           <p className="text-[11px] text-slate-400">
-            사람인 Open API 정기 수집 (매일 08:30 KST) · Firebase Authentication &amp; Firestore 계정 연동
+            사람인 Open API 정기 수집 (매일 08:30 KST) · Google Gemini 3.8 Flash AI 분석 · Firebase 클라우드 동기화
           </p>
         </footer>
       </main>

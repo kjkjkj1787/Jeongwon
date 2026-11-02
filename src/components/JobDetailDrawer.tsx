@@ -14,6 +14,7 @@ import {
   AlertCircle,
   FileText,
   Building2,
+  Sparkles,
 } from "lucide-react";
 
 interface JobDetailDrawerProps {
@@ -29,6 +30,7 @@ interface JobDetailDrawerProps {
   notes: string;
   onSaveNotes: (notes: string) => void;
   onDeleteJob?: (jobId: number) => void;
+  onAnalyzeResume?: (jobId: number) => void;
 }
 
 export const JobDetailDrawer: React.FC<JobDetailDrawerProps> = ({
@@ -44,6 +46,7 @@ export const JobDetailDrawer: React.FC<JobDetailDrawerProps> = ({
   notes,
   onSaveNotes,
   onDeleteJob,
+  onAnalyzeResume,
 }) => {
   const [eventType, setEventType] = useState<string>("인적성 검사");
   const [eventDate, setEventDate] = useState<string>(dateAfter(7));
@@ -362,6 +365,14 @@ export const JobDetailDrawer: React.FC<JobDetailDrawerProps> = ({
 
       {/* External Link & Actions */}
       <div className="pt-3 border-t border-slate-100 space-y-2">
+        <button
+          onClick={() => onAnalyzeResume && onAnalyzeResume(job.id)}
+          className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs transition shadow-xs"
+        >
+          <Sparkles className="w-4 h-4 text-amber-300" />
+          <span>AI 이력서 경쟁력 분석</span>
+        </button>
+
         {job.url ? (
           <a
             href={job.url}
