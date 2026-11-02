@@ -1,0 +1,46 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    // User profile document
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(userId) && request.resource.data.userId == request.auth.uid;
+      allow delete: if isOwner(userId);
+
+      // Subcollection: User job interaction statuses and notes
+      match /jobData/{jobId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Subcollection: User recruitment timeline events
+      match /events/{eventId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Public & Aggregated Jobs cache
+    match /jobs/{jobId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+  }
+}

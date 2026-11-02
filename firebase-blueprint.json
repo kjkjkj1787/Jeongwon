@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with automotive job preferences and notification settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "major": { "type": "string", "maxLength": 100 },
+        "skills": { "type": "string", "maxLength": 500 },
+        "roles": { "type": "string", "maxLength": 500 },
+        "regions": { "type": "string", "maxLength": 500 },
+        "emailNotifications": { "type": "boolean" },
+        "updatedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "major", "skills", "roles", "regions"]
+    },
+    "UserJobData": {
+      "title": "UserJobData",
+      "description": "User specific status, favorite mark, and notes for a job",
+      "type": "object",
+      "properties": {
+        "jobId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "maxLength": 50 },
+        "isFavorite": { "type": "boolean" },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["jobId", "userId", "status", "isFavorite"]
+    },
+    "UserEvent": {
+      "title": "UserEvent",
+      "description": "Recruitment milestone event like exam, interview, or final announcement",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "jobId": { "type": "integer" },
+        "date": { "type": "string", "maxLength": 20 },
+        "type": { "type": "string", "maxLength": 50 },
+        "memo": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "jobId", "date", "type"]
+    },
+    "PublicJob": {
+      "title": "PublicJob",
+      "description": "Automotive recruitment job listing collected from Saramin or system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "company": { "type": "string", "maxLength": 200 },
+        "title": { "type": "string", "maxLength": 300 },
+        "region": { "type": "string", "maxLength": 100 },
+        "industry": { "type": "string", "maxLength": 100 },
+        "deadline": { "type": "string", "maxLength": 30 },
+        "url": { "type": "string", "maxLength": 1000 },
+        "description": { "type": "string", "maxLength": 5000 },
+        "source": { "type": "string", "maxLength": 50 },
+        "skills": { "type": "array" },
+        "majors": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "company", "title", "region", "deadline"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "entities.UserProfile" },
+      "description": "User profile preferences"
+    },
+    "/users/{userId}/jobData/{jobId}": {
+      "schema": { "$ref": "entities.UserJobData" },
+      "description": "User status and notes for a job"
+    },
+    "/users/{userId}/events/{eventId}": {
+      "schema": { "$ref": "entities.UserEvent" },
+      "description": "User recruitment timeline milestones"
+    },
+    "/jobs/{jobId}": {
+      "schema": { "$ref": "entities.PublicJob" },
+      "description": "Aggregated automotive jobs cache"
+    }
+  }
+}

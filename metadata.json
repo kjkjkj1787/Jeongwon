@@ -1,0 +1,6 @@
+{
+  "name": "Auto Career AI - 자동차 취업 캘린더 & 직무 적합도 관리",
+  "description": "자동차 및 모빌리티 분야 취업 준비생을 위한 전공/기술/직무 맞춤 적합도 분석 및 채용 캘린더 일정 관리 플랫폼",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
