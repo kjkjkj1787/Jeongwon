@@ -97,7 +97,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             <span>정기 예약 실행 안내</span>
           </div>
           <p className="text-slate-600">
-            • <strong>실행 주기</strong>: 매일 오전 <strong>08:30 (KST, Asia/Seoul)</strong>에 사람인 신규 공고 수집과 함께 마감일 체크가 백엔드 Cron으로 실행됩니다.
+            • <strong>실행 주기</strong>: 매일 오전 <strong>08:30 (KST, Asia/Seoul)</strong>에 마감일 점검 및 알림 대상 확인이 백엔드 스케줄러로 자동 실행됩니다.
           </p>
           <p className="text-slate-600">
             • <strong>알림 대상</strong>: 서류 마감 3일 전(D-3) 및 1일 전(D-1)에 도달한 채용공고

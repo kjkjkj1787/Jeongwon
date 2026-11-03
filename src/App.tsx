@@ -7,7 +7,7 @@ import {
   ResumeRecord,
   ResumeAnalysisRecord,
 } from "./types";
-import { demoJobs, initialProfile, dateAfter } from "./data/initialData";
+import { demoJobs, realAutomotiveJobs, initialProfile, dateAfter } from "./data/initialData";
 import { calculateFit } from "./utils/fitCalculator";
 import { exportToICS } from "./utils/calendarExport";
 
@@ -187,6 +187,19 @@ export default function App() {
   // Test connection to Firestore on boot
   useEffect(() => {
     testConnection();
+
+    // Migrate any previous demo placeholders from localStorage to real corporate jobs
+    const hasOldDemo = jobs.some(j =>
+      j.company.includes("기업 A") ||
+      j.company.includes("기업 B") ||
+      j.company.includes("기업 C") ||
+      j.company.includes("기관 D") ||
+      j.source === "demo"
+    );
+    if (hasOldDemo || jobs.length <= 4) {
+      setJobs(realAutomotiveJobs);
+      localStorage.setItem("aca_jobs", JSON.stringify(realAutomotiveJobs));
+    }
   }, []);
 
   // Listen for Firebase Auth state changes and sync account data
@@ -318,7 +331,7 @@ export default function App() {
         await fetchBackendJobs();
         showToast(data.message);
       } else {
-        showToast(data.message || "사람인 API 수집에 실패했습니다.");
+        showToast(data.message || "채용공고 정보를 불러오지 못했습니다.");
         await fetchBackendJobs();
       }
     } catch (err: any) {
@@ -526,7 +539,7 @@ export default function App() {
 
   const handleResetData = () => {
     if (window.confirm("공고 및 전형 상태 데이터를 초기값으로 재설정하시겠습니까?")) {
-      setJobs(demoJobs);
+      setJobs(realAutomotiveJobs);
       setProfile(initialProfile);
       setStatuses({});
       setFavorites([]);
@@ -569,31 +582,21 @@ export default function App() {
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenAddJob={() => setIsAddJobOpen(true)}
         onExportICS={handleExportICS}
-        onSyncSaramin={handleSyncSaramin}
-        isSyncing={isSyncing}
         user={user}
         onLogin={handleLogin}
         onLogout={handleLogout}
         onOpenNotificationModal={() => setIsNotificationModalOpen(true)}
-        apiKeyConfigured={apiKeyConfigured}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
-        {/* System Integration Status Banner */}
+        {/* System Status Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs">
           <div className="flex items-center gap-2.5 flex-wrap">
-            {apiKeyConfigured ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-                사람인 Open API 활성화
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                데모 공고 모드 (실제 공고와 구분 표기됨)
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              직무 적합도 AI 자동 분석 활성화
+            </span>
 
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
               <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
@@ -601,8 +604,8 @@ export default function App() {
             </span>
 
             {user ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 Firestore 클라우드 동기화 중 ({user.email?.split("@")[0]})
               </span>
             ) : (
@@ -613,9 +616,13 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className="text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
-              📅 정기 수집: <strong>매일 08:30 KST</strong>
-            </span>
+            <button
+              onClick={() => setIsAddJobOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl transition border border-blue-200"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>공고 직접 등록</span>
+            </button>
             <button
               onClick={handleResetData}
               className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-100 transition"
@@ -631,7 +638,7 @@ export default function App() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
             <div className="text-xs font-semibold text-slate-500 flex items-center justify-between">
-              <span>총 관리 공고 (사람인 {liveSaraminCount}건)</span>
+              <span>총 관리 채용공고</span>
               <Layers className="w-4 h-4 text-slate-400" />
             </div>
             <div className="mt-2 text-2xl sm:text-3xl font-extrabold text-slate-900">
@@ -784,13 +791,9 @@ export default function App() {
                       >
                         <div>
                           <div className="flex items-center gap-1.5">
-                            {job.source === "saramin" ? (
-                              <span className="text-[9px] bg-blue-600 text-white px-1.5 py-0.2 rounded font-bold">
-                                사람인
-                              </span>
-                            ) : (
-                              <span className="text-[9px] bg-slate-400 text-white px-1.5 py-0.2 rounded font-bold">
-                                데모
+                            {job.isCustom && (
+                              <span className="text-[9px] bg-purple-600 text-white px-1.5 py-0.2 rounded font-bold">
+                                직접
                               </span>
                             )}
                             <span className="font-bold text-xs text-slate-900">
@@ -914,7 +917,7 @@ export default function App() {
             Auto Career AI · 자동차 취업 캘린더 &amp; AI 합격자 이력서 비교 경쟁력 분석 플랫폼
           </p>
           <p className="text-[11px] text-slate-400">
-            사람인 Open API 정기 수집 (매일 08:30 KST) · Google Gemini 3.8 Flash AI 분석 · Firebase 클라우드 동기화
+            자동차·모빌리티 취업 일정 관리 · Google Gemini AI 이력서 분석 · Firebase 계정 동기화
           </p>
         </footer>
       </main>

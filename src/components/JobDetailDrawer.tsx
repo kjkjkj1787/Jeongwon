@@ -82,17 +82,9 @@ export const JobDetailDrawer: React.FC<JobDetailDrawerProps> = ({
       <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {job.source === "saramin" ? (
-              <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
-                사람인 실시간 공고
-              </span>
-            ) : job.isCustom ? (
+            {job.isCustom && (
               <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200">
                 직접 등록
-              </span>
-            ) : (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-200 text-slate-700">
-                데모 가상 공고
               </span>
             )}
             <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
@@ -101,7 +93,7 @@ export const JobDetailDrawer: React.FC<JobDetailDrawerProps> = ({
           </div>
           {job.deadlineChanged && (
             <div className="mt-1 text-[11px] p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 font-semibold">
-              🔔 사람인 마감일 갱신: 기존 {job.previousDeadline} ➔ 변경 {job.deadline}
+              🔔 마감일 변경 안내: 기존 {job.previousDeadline} ➔ 변경 {job.deadline}
             </div>
           )}
           <h2 className="text-lg font-bold text-slate-900 mt-1 flex items-center gap-1.5">

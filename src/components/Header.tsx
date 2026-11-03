@@ -32,13 +32,13 @@ interface HeaderProps {
   onOpenProfile: () => void;
   onOpenAddJob: () => void;
   onExportICS: () => void;
-  onSyncSaramin: () => void;
-  isSyncing: boolean;
+  onSyncSaramin?: () => void;
+  isSyncing?: boolean;
   user: User | null;
   onLogin: () => void;
   onLogout: () => void;
   onOpenNotificationModal: () => void;
-  apiKeyConfigured: boolean;
+  apiKeyConfigured?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -47,13 +47,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile,
   onOpenAddJob,
   onExportICS,
-  onSyncSaramin,
-  isSyncing,
   user,
   onLogin,
   onLogout,
   onOpenNotificationModal,
-  apiKeyConfigured,
 }) => {
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-30 shadow-md">
@@ -69,19 +66,8 @@ export const Header: React.FC<HeaderProps> = ({
                 <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
                   Auto Career AI
                 </h1>
-                {apiKeyConfigured ? (
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                    사람인 API 연동됨
-                  </span>
-                ) : (
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3 text-amber-400" />
-                    데모 공고 모드
-                  </span>
-                )}
-                <span className="text-[10px] text-slate-400 border border-slate-700/60 px-1.5 py-0.5 rounded bg-slate-800/80">
-                  매일 08:30 KST 수집
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  모빌리티 취업 플랫폼
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -92,24 +78,6 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Live Saramin Sync Button */}
-            <button
-              onClick={onSyncSaramin}
-              disabled={isSyncing}
-              title="사람인 채용공고 실시간 수집 및 마감일 갱신"
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition ${
-                isSyncing
-                  ? "bg-slate-800 text-slate-400 border-slate-700 cursor-not-allowed"
-                  : "bg-blue-900/60 text-blue-200 border-blue-700/70 hover:bg-blue-800 hover:text-white"
-              }`}
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 text-blue-400 ${
-                  isSyncing ? "animate-spin text-blue-300" : ""
-                }`}
-              />
-              <span>{isSyncing ? "수집 동기화 중..." : "사람인 공고 수집"}</span>
-            </button>
 
             {/* Email Notification Button */}
             <button

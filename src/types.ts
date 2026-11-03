@@ -10,7 +10,7 @@ export type Job = {
   url: string;
   description: string;
   isCustom?: boolean;
-  source?: "saramin" | "demo" | "custom";
+  source?: "saramin" | "real" | "custom" | "demo";
   isLive?: boolean;
   collectedAt?: string;
   deadlineChanged?: boolean;

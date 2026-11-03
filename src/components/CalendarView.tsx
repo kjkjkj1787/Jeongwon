@@ -226,7 +226,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <button
                       key={job.id}
                       onClick={() => onSelectJob(job.id)}
-                      title={`[${job.source === "saramin" ? "사람인 실시간" : "데모"}] ${job.company} - ${job.title} (${job.fit.score}점)${job.deadlineChanged ? " (마감일 변경됨)" : ""}`}
+                      title={`${job.company} - ${job.title} (${job.fit.score}점)${job.deadlineChanged ? " (마감일 변경됨)" : ""}`}
                       className={`w-full text-left p-1 rounded-md text-[10px] sm:text-[11px] leading-tight font-medium transition block truncate border ${
                         isSelected
                           ? "ring-2 ring-blue-600 border-blue-500 shadow-xs"
@@ -239,17 +239,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <span className="truncate font-semibold flex items-center gap-1">
-                          {job.source === "saramin" ? (
-                            <span className="text-[8px] bg-blue-600 text-white px-1 py-0.2 rounded font-bold">
-                              사람인
-                            </span>
-                          ) : job.isCustom ? (
+                          {job.isCustom && (
                             <span className="text-[8px] bg-purple-600 text-white px-1 py-0.2 rounded font-bold">
                               직접
-                            </span>
-                          ) : (
-                            <span className="text-[8px] bg-slate-400 text-white px-1 py-0.2 rounded font-bold">
-                              데모
                             </span>
                           )}
                           <span className="truncate">{job.company}</span>
